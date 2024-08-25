@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>TableWave</title>
+    <link rel="icon" href="{{ url_for('static', filename='globe_sticker.png') }}" type="image/png">
+
+</head>
+<body class="light-mode">
+    <header>
+        <!-- Displaying logo -->
+        <img src="{{ url_for('static', filename='globe_sticker.png') }}" alt="TableWave Logo" class="logo">
+        <h1 class="alignh1">TableWave</h1>
+    </header>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="container">
+            <div>
+                <h2>Tables:</h2>
+                <ul>
+                    {% for table in tables %}
+                        <li><a href="{{ url_for('table', table_name=table) }}">{{ table   | upper}}</a></li>
+                    {% endfor %}
+                </ul>
+                <!-- Creating new tables for admin -->
+                <!-- Hiding button that reveals itself on (shift + r) -->
+                <button id="hiddenButton" onclick="toggle_newtable_Form()">+ New Table</button>
+                <div id="new_table" style="display:none;">
+                    <h2>Create New Table</h2>
+                    <form action="{{ url_for('create_table') }}" method="post">
+                        <label>Table Name:</label>
+                        <input type="text" name="table_name" required><br>
+                        <label>Number of Columns:</label>
+                        <input type="text" name="num_columns" required><br>
+                        <div id="columns"></div>
+                        <input type="submit" value="Add">
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            {% if table_name %}
+                <h2>{{ table_name | upper }}</h2>
+                <table>
+                    <thead>
+                        <tr>    <!--table header -->
+                            {% for column in columns %}
+                                <th>
+                                    {{ column[1]  | upper if table_name != 'salaries' else column[0] | upper }}
+                                </th>
+                            {% endfor %}
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                            <tr>
+                                {% for column in columns %}
+                                    <td>    <!-- table data-->
+                                        {% if table_name == 'salaries' %}
+                                            {% if column[0] == 'all_addresses' %}
+                                                <select class="custom-dropdown">
+                                                    {% for address, postal in row['all_addresses'] %}
+                                                        <option>{{ address }} - {{ postal }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            {% else %}
+                                                {{ row[column[0]] }}
+                                            {% endif %}
+                                        {% else %}
+                                            {{ row[column[1]] }}
+                                        {% endif %}
+                                    </td>
+                                {% endfor %}
+                                <td>
+                                    <!-- Update Button -->
+                                    <button onclick="document.getElementById('updateForm{{ row['id'] }}').style.display='block'">Update</button>
+                                    <!-- Delete Button -->
+                                    <form action="{{ url_for('delete_row', table_name=table_name, row_id=row['id']) }}" method="post" style="display:inline;">
+                                        <input type="submit" value="Delete">
+                                    </form>
+                                </td>
+                            </tr>   <!-- Update working -->
+                            <tr id="updateForm{{ row['id'] }}" style="display:none;">
+                                <td colspan="{{ columns|length + 1 }}">
+                                    <form action="{{ url_for('update_row', table_name=table_name, row_id=row['id']) }}" method="post">
+                                        {% for column in columns %}
+                                            {% if table_name == 'salaries' %}
+                                                {% if column[0] != 'id' and column[0] != 'all_addresses' %}
+                                                    <label>{{ column[0] | upper }}:</label>
+                                                    <input type="text" name="{{ column[0] }}" value="{{ row[column[0]] }}" required>
+                                                {% endif %}
+                                            {% else %}
+                                                {% if column[1] != 'id' %}
+                                                    <label>{{ column[1] | upper }}:</label>
+                                                    <input type="text" name="{{ column[1] }}" value="{{ row[column[1]] }}" required>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        <!-- Making update easy -->
+                                        <div id="addressFields{{ row['id'] }}">
+                                            {% for address, postal in row['all_addresses'] %}
+                                                <div>
+                                                    <label>ADDRESS:</label>
+                                                    <input type="text" name="address[]" value="{{ address }}" required>
+                                                    <label>POSTAL:</label>
+                                                    <input type="text" name="postal[]" value="{{ postal }}" required>
+                                                    <button type="button" onclick="removeAddressField(this)">-</button>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                        <!-- Adding new address -->
+                                        <button type="button" onclick="addAddressField('addressFields{{ row['id'] }}')">+ Add Address</button>
+                                        <input type="submit" value="Update">
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <!-- Adding new row -->
+                <!-- Hiding form -->
+                <button onclick="toggleForm()">+ New Record</button>
+                <div id="form-container" style="display:none;">
+                    <h2>Enter values</h2>
+                    <form action="{{ url_for('create_row', table_name=table_name) }}" method="post">
+                        {% for column in columns %}
+                            {% if table_name != 'salaries' %}
+                                {% if column[1] != 'id' %}
+                                    <label>{{ column[1] | upper }}:</label>
+                                    <input type="text" name="{{ column[1] }}">
+                                    <br>
+                                {% endif %}
+                            {% else %}
+                                {% if column[0] != 'id' and column[0] != 'all_addresses' %}
+                                    <label>{{ column[0] | upper }}:</label>
+                                    <input type="text" name="{{ column[0] }}">
+                                    <br>
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                        <!-- Add addresses section -->
+                        <div id="addressFields">
+                            <div>
+                                <label>ADDRESS:</label>
+                                <input type="text" name="address[]" required>
+                                <label>POSTAL:</label>
+                                <input type="text" name="postal[]" required>
+                                <button type="button" onclick="removeAddressField(this)">-</button>
+                            </div>
+                        </div>
+                        <button type="button" onclick="addAddressField()">+ Add Address</button>
+                        <br>
+                        <input type="submit" value="Add">
+                    </form>
+                </div>
+            {% else %}
+                <p>Select a table to view its contents.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Hiding button
+        document.addEventListener('keydown', function(event) {
+            if (event.shiftKey && (event.key === 'R' || event.key === 'r')) {
+                document.getElementById('hiddenButton').style.display = 'block';
+            }
+        });
+        // Creating table
+        document.querySelector('input[name="num_columns"]').addEventListener('input', function () {
+            let numColumns = this.value;
+            let columnsDiv = document.getElementById('columns');
+            columnsDiv.innerHTML = '';
+            for (let i = 1; i <= numColumns; i++) {
+                columnsDiv.innerHTML += `
+                    <label>Column ${i} Name:</label>
+                    <input type="text" name="col_name_${i}" required><br>
+                    <label>Column ${i} Type:</label>
+                    <select class="custom-dropdown" name="col_type_${i}" required>
+                        <option value="INT">INT</option>
+                        <option value="VARCHAR">VARCHAR</option>
+                    </select><br>
+                `;
+            }
+        });
+        // Show form when button pressed
+        function toggleForm() {
+            var formContainer = document.getElementById('form-container');
+            formContainer.style.display = (formContainer.style.display === 'none' || formContainer.style.display === '') ? 'block' : 'none';
+        }
+
+        function toggle_newtable_Form() {
+            var formContainer = document.getElementById('new_table');
+            formContainer.style.display = (formContainer.style.display === 'none' || formContainer.style.display === '') ? 'block' : 'none';
+        }
+        // + adding address
+        function addAddressField(containerId) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.innerHTML = `
+                <label>ADDRESS:</label>
+                <input type="text" name="address[]" required>
+                <label>POSTAL:</label>
+                <input type="text" name="postal[]" required>
+                <button type="button" onclick="removeAddressField(this)">-</button>
+            `;
+            container.appendChild(div);
+        }
+        // - removing address
+        function removeAddressField(button) {
+            const div = button.parentElement;
+            div.parentElement.removeChild(div);
+        }
+    </script>
+</body>
+</html>
